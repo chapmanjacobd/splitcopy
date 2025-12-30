@@ -20,7 +20,7 @@ import (
 type CLI struct {
 	Source      string   `arg:"" help:"Source directory." type:"existingdir"`
 	Destination string   `arg:"" help:"Destination directory." type:"path"`
-	FileList    *os.File `help:"Text file containing relative paths to copy."`
+	ResumeList  *os.File `name:"resume" short:"r" placeholder:"FILE" help:"Text file containing relative paths to copy."`
 }
 
 type Session struct {
@@ -65,9 +65,9 @@ func (s *Session) scan() {
 		s.mu.Unlock()
 	}()
 
-	if s.args.FileList != nil {
-		defer s.args.FileList.Close()
-		scanner := bufio.NewScanner(s.args.FileList)
+	if s.args.ResumeList != nil {
+		defer s.args.ResumeList.Close()
+		scanner := bufio.NewScanner(s.args.ResumeList)
 		for scanner.Scan() {
 			s.addPath(scanner.Text())
 		}
@@ -142,7 +142,8 @@ func (s *Session) copyLoop(startIndex int) error {
 
 func (s *Session) handleInterrupt(startIdx int, isUserQuit bool) error {
 	if isUserQuit {
-		fmt.Println("\nInterrupt received. Finishing scan... (Press Ctrl+C again in >2s to cancel)")
+		fmt.Println("\nInterrupt received. Finishing source directory tree scan...")
+		fmt.Println("Press Ctrl+C again in >2s to cancel and delete incomplete progress file")
 		interruptTime := time.Now()
 
 		go func() {
