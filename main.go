@@ -129,6 +129,10 @@ func (s *Session) copyWithRetry(rel string, paths <-chan string) error {
 
 	size := sInfo.Size()
 
+	if time.Since(s.progress.lastPrintTime) >= 320*time.Millisecond {
+		s.printProgress()
+	}
+
 	for {
 		// Check for interrupt
 		if len(s.sigIntChan) > 0 {
@@ -141,9 +145,6 @@ func (s *Session) copyWithRetry(rel string, paths <-chan string) error {
 			s.progress.Global.Bytes += size
 			s.progress.Local.Files++
 			s.progress.Local.Bytes += size
-			if time.Since(s.progress.lastPrintTime) >= 800*time.Millisecond {
-				s.printProgress()
-			}
 
 			s.currentRel = ""
 			return nil
@@ -215,7 +216,7 @@ func (s *Session) printProgress() {
 		humanBytes(int64(rate)),
 	)
 
-	remainingSpace := s.termWidth - len(status) - 3
+	remainingSpace := s.termWidth - len(status) - 4
 	if remainingSpace > 10 {
 		status = status + " | " + truncateMiddle(s.currentRel, remainingSpace) + "\033[K"
 	} else {
