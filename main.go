@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -26,7 +25,7 @@ type CLI struct {
 
 type Session struct {
 	args     *CLI
-	sigChan  chan os.Signal
+	sigIntChan  chan os.Signal
 	mu       sync.Mutex
 	cond     *sync.Cond
 	allPaths []string
@@ -38,12 +37,12 @@ func main() {
 	var args CLI
 	kong.Parse(&args)
 
-	sigChan := make(chan os.Signal, 2)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	sigIntChan := make(chan os.Signal, 2)
+	signal.Notify(sigIntChan, os.Interrupt, syscall.SIGTERM)
 
 	sess := &Session{
 		args:    &args,
-		sigChan: sigChan,
+		sigIntChan: sigIntChan,
 	}
 	sess.cond = sync.NewCond(&sess.mu)
 
@@ -97,14 +96,14 @@ func (s *Session) copyLoop(startIndex int) error {
 
 	for {
 		select {
-		case <-s.sigChan:
+		case <-s.sigIntChan:
 			return s.handleInterrupt(currentIndex, true)
 		default:
 			s.mu.Lock()
 			for currentIndex >= len(s.allPaths) && !s.scanDone {
 				s.mu.Unlock()
 				select {
-				case <-s.sigChan:
+				case <-s.sigIntChan:
 					return s.handleInterrupt(currentIndex, true)
 				case <-time.After(50 * time.Millisecond):
 					s.mu.Lock()
@@ -123,18 +122,15 @@ func (s *Session) copyLoop(startIndex int) error {
 			dst := filepath.Join(s.args.Destination, relPath)
 
 			if err := s.copyFile(src, dst); err != nil {
-				if errors.Is(err, syscall.ENOSPC) {
-					fmt.Printf("\nDisk full: %s\n", relPath)
-					s.handleInterrupt(currentIndex, false)
+				fmt.Printf("\n%s: %s\n", err, relPath)
+				s.handleInterrupt(currentIndex, false)
 
-					newDest, err := s.promptForNewPath()
-					if err != nil {
-						return err
-					}
-					s.args.Destination = newDest
-					return s.copyLoop(currentIndex)
+				newDest, err := s.promptForNewPath()
+				if err != nil {
+					return err
 				}
-				return err
+				s.args.Destination = newDest
+				return s.copyLoop(currentIndex)
 			}
 			currentIndex++
 		}
@@ -149,7 +145,7 @@ func (s *Session) handleInterrupt(startIdx int, isUserQuit bool) error {
 		fmt.Println()
 
 		go func() {
-			<-s.sigChan
+			<-s.sigIntChan
 			if time.Since(interruptTime) > 2*time.Second {
 				os.Remove(filepath.Base(s.args.Source) + ".remainingfiles")
 				fmt.Println("\nCancelled. Progress file deleted.")
@@ -167,7 +163,7 @@ func (s *Session) handleInterrupt(startIdx int, isUserQuit bool) error {
 
 	s.saveRemaining(remaining)
 	if isUserQuit {
-		os.Exit(0)
+		os.Exit(130)
 	}
 	return nil
 }
