@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -142,9 +143,10 @@ func (s *Session) copyLoop(startIndex int) error {
 
 func (s *Session) handleInterrupt(startIdx int, isUserQuit bool) error {
 	if isUserQuit {
+		interruptTime := time.Now()
 		fmt.Println("\nInterrupt received. Finishing source directory tree scan...")
 		fmt.Println("Press Ctrl+C again in >2s to cancel and delete incomplete progress file")
-		interruptTime := time.Now()
+		fmt.Println()
 
 		go func() {
 			<-s.sigChan
@@ -197,7 +199,8 @@ func (s *Session) promptForNewPath() (string, error) {
 	}
 	defer rl.Close()
 
-	return rl.ReadLineWithDefault(s.args.Destination)
+	input, err := rl.ReadLineWithDefault(s.args.Destination)
+	return strings.TrimSpace(input), err
 }
 
 func (s *Session) copyFile(src, dst string) error {
