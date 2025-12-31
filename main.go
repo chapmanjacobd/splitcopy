@@ -34,7 +34,7 @@ func main() {
 		args:       &args,
 		sigIntChan: sigIntChan,
 		progress: Progress{
-			Start: time.Now(),
+			start: time.Now(),
 		},
 	}
 
@@ -75,9 +75,10 @@ type Stats struct {
 }
 
 type Progress struct {
-	Global Stats
-	Local  Stats
-	Start  time.Time
+	Global        Stats
+	Local         Stats
+	start         time.Time
+	lastPrintTime time.Time
 }
 
 type Session struct {
@@ -117,7 +118,6 @@ func (s *Session) Run() error {
 
 func (s *Session) copyWithRetry(rel string, paths <-chan string) error {
 	s.currentRel = rel
-	defer func() { s.currentRel = "" }()
 
 	src := filepath.Join(s.args.Source, rel)
 	sInfo, err := os.Stat(src)
@@ -141,7 +141,11 @@ func (s *Session) copyWithRetry(rel string, paths <-chan string) error {
 			s.progress.Global.Bytes += size
 			s.progress.Local.Files++
 			s.progress.Local.Bytes += size
-			s.printProgress()
+			if time.Since(s.progress.lastPrintTime) >= 800*time.Millisecond {
+				s.printProgress()
+			}
+
+			s.currentRel = ""
 			return nil
 		}
 
@@ -155,7 +159,7 @@ func (s *Session) copyWithRetry(rel string, paths <-chan string) error {
 		s.args.Destination = newDest
 		// Reset local stats for new destination
 		s.progress.Local = Stats{}
-		s.progress.Start = time.Now()
+		s.progress.start = time.Now()
 	}
 }
 
@@ -196,7 +200,7 @@ func (s *Session) copyFile(src, dst string) error {
 }
 
 func (s *Session) printProgress() {
-	elapsed := time.Since(s.progress.Start).Seconds()
+	elapsed := time.Since(s.progress.start).Seconds()
 	var rate float64
 	if elapsed > 0 {
 		rate = float64(s.progress.Local.Bytes) / elapsed
@@ -211,7 +215,7 @@ func (s *Session) printProgress() {
 		humanBytes(int64(rate)),
 	)
 
-	remainingSpace := s.termWidth - len(status) - 4 // for the " | " and \033[K
+	remainingSpace := s.termWidth - len(status) - 3
 	if remainingSpace > 10 {
 		status = status + " | " + truncateMiddle(s.currentRel, remainingSpace) + "\033[K"
 	} else {
@@ -219,6 +223,7 @@ func (s *Session) printProgress() {
 	}
 
 	fmt.Print(status)
+	s.progress.lastPrintTime = time.Now()
 }
 
 func humanBytes(n int64) string {
