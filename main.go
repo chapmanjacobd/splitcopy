@@ -123,7 +123,7 @@ func (s *Session) copyWithRetry(rel string, paths <-chan string) error {
 	sInfo, err := os.Stat(src)
 	if err != nil {
 		fmt.Println()
-		fmt.Printf("Stat error %s: %s\n", err, rel)
+		fmt.Printf("Stat error %v: %s\n", err, rel)
 		return nil
 	}
 
@@ -140,7 +140,8 @@ func (s *Session) copyWithRetry(rel string, paths <-chan string) error {
 		}
 
 		dst := filepath.Join(s.args.Destination, rel)
-		if err := s.copyFile(src, dst); err == nil {
+		err := s.copyFile(src, dst)
+		if err == nil {
 			s.progress.Global.Files++
 			s.progress.Global.Bytes += size
 			s.progress.Local.Files++
@@ -148,19 +149,19 @@ func (s *Session) copyWithRetry(rel string, paths <-chan string) error {
 
 			s.currentRel = ""
 			return nil
-		}
+		} else {
+			fmt.Println()
+			fmt.Printf("%v\n", err)
 
-		fmt.Println()
-		fmt.Printf("%s: %s\n", err, rel)
-
-		newDest, err := s.promptForNewPath()
-		if err != nil {
-			return s.exitWithRemaining(paths)
+			newDest, err := s.promptForNewPath()
+			if err != nil {
+				return s.exitWithRemaining(paths)
+			}
+			s.args.Destination = newDest
+			// Reset local stats for new destination
+			s.progress.Local = Stats{}
+			s.progress.start = time.Now()
 		}
-		s.args.Destination = newDest
-		// Reset local stats for new destination
-		s.progress.Local = Stats{}
-		s.progress.start = time.Now()
 	}
 }
 
@@ -207,12 +208,15 @@ func (s *Session) printProgress() {
 		rate = float64(s.progress.Local.Bytes) / elapsed
 	}
 
-	status := fmt.Sprintf(
-		"\r[Global: %d files, %s] [Dest: %d files, %s] | %s/s",
+	status := fmt.Sprintf("\r[Global: %d files, %s]%s | %s/s",
 		s.progress.Global.Files,
 		humanBytes(s.progress.Global.Bytes),
-		s.progress.Local.Files,
-		humanBytes(s.progress.Local.Bytes),
+		func() string {
+			if s.progress.Global.Files == s.progress.Local.Files {
+				return ""
+			}
+			return fmt.Sprintf(" [Dest: %d files, %s]", s.progress.Local.Files, humanBytes(s.progress.Local.Bytes))
+		}(),
 		humanBytes(int64(rate)),
 	)
 
