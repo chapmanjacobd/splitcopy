@@ -2,10 +2,12 @@ package main
 
 import (
 	"bufio"
+	"bytes"
+	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strings"
@@ -166,37 +168,14 @@ func (s *Session) copyWithRetry(rel string, paths <-chan string) error {
 }
 
 func (s *Session) copyFile(src, dst string) error {
-	sInfo, err := os.Stat(src)
-	if err != nil {
-		return err
-	}
-
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
 	}
 
-	fSrc, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer fSrc.Close()
-
-	fDst, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-
-	_, err = io.Copy(fDst, fSrc)
-	fDst.Close()
-
-	if err != nil {
+	cmd := exec.Command("cp", "--sparse=auto", "-p", src, dst)
+	if out, err := cmd.CombinedOutput(); err != nil {
 		_ = os.Remove(dst)
-		return err
-	}
-
-	os.Chtimes(dst, sInfo.ModTime(), sInfo.ModTime())
-	if stat, ok := sInfo.Sys().(*syscall.Stat_t); ok {
-		_ = os.Chown(dst, int(stat.Uid), int(stat.Gid))
+		return errors.New(string(bytes.TrimSpace(out)))
 	}
 	return nil
 }
@@ -208,7 +187,7 @@ func (s *Session) printProgress() {
 		rate = float64(s.progress.Local.Bytes) / elapsed
 	}
 
-	status := fmt.Sprintf("\r[Global: %d files, %s]%s | %s/s",
+	status := fmt.Sprintf("[Global: %d files, %s]%s | %s/s",
 		s.progress.Global.Files,
 		humanBytes(s.progress.Global.Bytes),
 		func() string {
@@ -220,14 +199,12 @@ func (s *Session) printProgress() {
 		humanBytes(int64(rate)),
 	)
 
-	remainingSpace := s.termWidth - len(status) - 4
+	remainingSpace := s.termWidth - len(status) - 3
 	if remainingSpace > 10 {
-		status = status + " | " + truncateMiddle(s.currentRel, remainingSpace) + "\033[K"
-	} else {
-		status = status + "\033[K"
+		status = status + " | " + truncateMiddle(s.currentRel, remainingSpace)
 	}
 
-	fmt.Print(status)
+	fmt.Print("\r" + status + "\033[K")
 	s.progress.lastPrintTime = time.Now()
 }
 
