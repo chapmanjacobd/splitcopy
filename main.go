@@ -123,7 +123,7 @@ func (s *Session) copyWithRetry(rel string, paths <-chan string) error {
 	sInfo, err := os.Stat(src)
 	if err != nil {
 		fmt.Println()
-		fmt.Printf("Stat error %v: %s\n", err, rel)
+		fmt.Printf("%v\n", err)
 		return nil
 	}
 
