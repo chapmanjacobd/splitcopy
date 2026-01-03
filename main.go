@@ -240,7 +240,7 @@ func (s *Session) promptForNewPath() (string, error) {
 	fmt.Printf("Enter new destination path (ie. \"insert disk %d\"):\n", s.progress.diskNum)
 
 	rl, err := readline.NewEx(&readline.Config{
-		Prompt: "",
+		Prompt: "?> ",
 		AutoComplete: readline.NewPrefixCompleter(
 			readline.PcItemDynamic(func(line string) []string {
 				dir := filepath.Dir(line)
