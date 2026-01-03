@@ -133,7 +133,7 @@ func (s *Session) copyWithRetry(rel string, paths <-chan string) error {
 
 	size := sInfo.Size()
 
-	if time.Since(s.progress.lastPrintTime) >= 320*time.Millisecond {
+	if s.progress.Local.Files == 0 || time.Since(s.progress.lastPrintTime) >= 320*time.Millisecond {
 		s.printProgress()
 	}
 
