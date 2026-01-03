@@ -199,7 +199,7 @@ func (s *Session) printProgress() {
 		humanBytes(int64(rate)),
 	)
 
-	remainingSpace := s.termWidth - len(status) - 3
+	remainingSpace := s.termWidth - len(status) - 4
 	if remainingSpace > 10 {
 		status = status + " | " + truncateMiddle(s.currentRel, remainingSpace)
 	}
