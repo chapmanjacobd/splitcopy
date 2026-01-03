@@ -36,7 +36,8 @@ func main() {
 		args:       &args,
 		sigIntChan: sigIntChan,
 		progress: Progress{
-			start: time.Now(),
+			start:   time.Now(),
+			diskNum: 1,
 		},
 	}
 
@@ -81,6 +82,7 @@ type Progress struct {
 	Local         Stats
 	start         time.Time
 	lastPrintTime time.Time
+	diskNum       int
 }
 
 type Session struct {
@@ -163,6 +165,7 @@ func (s *Session) copyWithRetry(rel string, paths <-chan string) error {
 			// Reset local stats for new destination
 			s.progress.Local = Stats{}
 			s.progress.start = time.Now()
+			s.progress.diskNum += 1
 		}
 	}
 }
@@ -234,7 +237,7 @@ func truncateMiddle(s string, max int) string {
 
 func (s *Session) promptForNewPath() (string, error) {
 	fmt.Println()
-	fmt.Printf("Enter new destination path (ie. \"Disk 2\"):\n")
+	fmt.Printf("Enter new destination path (ie. \"insert disk %d\"):\n", s.progress.diskNum)
 
 	rl, err := readline.NewEx(&readline.Config{
 		Prompt: "",
