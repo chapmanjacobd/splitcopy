@@ -166,6 +166,7 @@ func (s *Session) copyWithRetry(rel string, paths <-chan string) error {
 			s.progress.Local = Stats{}
 			s.progress.start = time.Now()
 			s.progress.diskNum++
+			s.printProgress()
 		}
 	}
 }
