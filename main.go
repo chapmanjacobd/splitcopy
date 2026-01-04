@@ -161,12 +161,15 @@ func (s *Session) copyWithRetry(rel string, paths <-chan string) error {
 			if err != nil {
 				return s.exitWithRemaining(paths)
 			}
-			s.args.Destination = newDest
-			// Reset local stats for new destination
-			s.progress.Local = Stats{}
-			s.progress.start = time.Now()
-			s.progress.diskNum++
-			s.printProgress()
+			if s.args.Destination != newDest {
+				s.args.Destination = newDest
+
+				// Reset local stats for new destination
+				s.progress.Local = Stats{}
+				s.progress.start = time.Now()
+				s.progress.diskNum++
+				s.printProgress()
+			}
 		}
 	}
 }
