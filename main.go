@@ -37,7 +37,7 @@ func main() {
 		sigIntChan: sigIntChan,
 		progress: Progress{
 			start:   time.Now(),
-			diskNum: 1,
+			diskNum: 2,
 		},
 	}
 
@@ -165,7 +165,7 @@ func (s *Session) copyWithRetry(rel string, paths <-chan string) error {
 			// Reset local stats for new destination
 			s.progress.Local = Stats{}
 			s.progress.start = time.Now()
-			s.progress.diskNum += 1
+			s.progress.diskNum++
 		}
 	}
 }
